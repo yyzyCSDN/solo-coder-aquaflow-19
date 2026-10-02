@@ -5,5 +5,5 @@ class State:
 def project_age(s:State,hours:float)->float:
     if min(s.volume,s.inflow,s.outflow,hours)<0: raise ValueError("negative")
     if s.volume==0:return 0
-    renewal=min(1,(s.outflow*hours)/s.volume)
+    renewal=min(1,(s.inflow*hours)/s.volume)
     return (s.age_hours+hours)*(1-renewal)+(hours*.5)*renewal

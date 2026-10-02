@@ -53,8 +53,10 @@ def evaluate(name: str, p: dict[str, Any]) -> dict[str, Any]:
         return {"decision": "backwash" if selected else "defer", "value": selected, "evidence": {"offline": sorted(p["offline"])}}
     if name == "reservoir_age":
         s = p["state"]
-        age = project_age(State(float(s["volume"]), float(s.get(p.get("_renewal_source", "inflow"), s["inflow"])), float(s["outflow"]), float(s["age_hours"])), float(p["hours"]))
-        return {"decision": "renew" if age <= float(p.get("max_age", 24)) else "hold", "value": age, "evidence": {"fresh_inflow": float(s["inflow"])}}
+        state = State(float(s["volume"]), float(s["inflow"]), float(s["outflow"]), float(s["age_hours"]))
+        age = project_age(state, float(p["hours"]))
+        max_age = float(p.get("max_age", 24))
+        return {"decision": "renew" if age <= max_age else "hold", "value": age, "evidence": {"projected_age": age, "max_age": max_age, "fresh_inflow": state.inflow, "renewal_source": "inflow"}}
     if name == "network_isolation":
         ps = [Pipe(str(x["id"]), str(x["a"]), str(x["b"]), bool(x.get("open", True))) for x in p["pipes"]]
         cut = isolated(set(p["nodes"]), ps, set(p["closed"]), set(p["sources"]))
