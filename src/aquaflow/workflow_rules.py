@@ -20,7 +20,7 @@ from .network.topology import Revision, at as topology_at
 from .outage.impact import Customer, summarize
 from .pumps.schedule import Hist, Pump, choose as choose_pumps
 from .regulatory.rolling import Reading, average
-from .reservoir.turnover import State, project_age
+from .reservoir.turnover import State, project_age, renewal_fraction
 from .treatment.backwash import Filter, choose as choose_filter
 from .treatment.chlorine_ct import Segment, effective_ct
 from .treatment.coagulant import Jar, recommend
@@ -53,8 +53,14 @@ def evaluate(name: str, p: dict[str, Any]) -> dict[str, Any]:
         return {"decision": "backwash" if selected else "defer", "value": selected, "evidence": {"offline": sorted(p["offline"])}}
     if name == "reservoir_age":
         s = p["state"]
-        age = project_age(State(float(s["volume"]), float(s.get(p.get("_renewal_source", "inflow"), s["inflow"])), float(s["outflow"]), float(s["age_hours"])), float(p["hours"]))
-        return {"decision": "renew" if age <= float(p.get("max_age", 24)) else "hold", "value": age, "evidence": {"fresh_inflow": float(s["inflow"])}}
+        # Renewal is driven by fresh inflow; outflow only provides operating context.
+        state = State(float(s["volume"]), float(s["inflow"]), float(s["outflow"]), float(s["age_hours"]))
+        hours = float(p["hours"])
+        max_age = float(p.get("max_age", 24))
+        age = project_age(state, hours)
+        renewal = renewal_fraction(state, hours)
+        decision = "renew" if age <= max_age else "hold"
+        return {"decision": decision, "value": age, "evidence": {"projected_age": age, "max_age": max_age, "renewal_fraction": renewal, "fresh_inflow": state.inflow, "outflow": state.outflow}}
     if name == "network_isolation":
         ps = [Pipe(str(x["id"]), str(x["a"]), str(x["b"]), bool(x.get("open", True))) for x in p["pipes"]]
         cut = isolated(set(p["nodes"]), ps, set(p["closed"]), set(p["sources"]))
